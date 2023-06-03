@@ -1,0 +1,11 @@
+- matching:
+    blob_files: blobs_cam1, blobs_cam2, blobs_cam3, blobs_cam4
+    N_frames: None
+    camera_names: cam1, cam2, cam3, cam4
+    cam_resolution: 1280, 1024
+    ROI: 0.0, 40.0, -10.0, 30.0, -20.0, 20.0
+    voxel_size: 1.0
+    max_blob_distance: 1.0
+    max_err: 1.0
+    save_name: particles
+
