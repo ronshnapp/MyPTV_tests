@@ -1,0 +1,20 @@
+- matching:
+    blob_files: testcase_4/blobs_cam1, testcase_4/blobs_cam2, testcase_4/blobs_cam4
+    frame_start: 0
+    N_frames: 10
+    camera_names: testcase_4/cam1, testcase_4/cam2, testcase_4/cam4
+    cam_resolution: 1280, 1024
+    ROI: 0.0, 70.0, 0.0, 70.0, -20.0, 20.0
+    voxel_size: 1.0
+    max_blob_distance: 0.25
+    max_err: 0.25
+    save_name: testcase_4/particlesVoxelMethod
+
+- tracking:
+    particles_file_name: testcase_4/particlesAngularMatching
+    frame_start: 0
+    N_frames: None
+    d_max: 0.15
+    dv_max: 0.15
+    save_name: testcase_4/trajectoriesAngularMatching
+

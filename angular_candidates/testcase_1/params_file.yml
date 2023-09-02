@@ -6,5 +6,14 @@
     ROI: -10.0, 80.0, -10.0, 80.0, -25.0, 25.0
     voxel_size: 1.0
     max_blob_distance: 1.0
-    max_err: 1.0
+    max_err: 0.15
     save_name: ./testcase_1/particlesVoxelMethod
+
+- tracking:
+    particles_file_name: ./testcase_1/particlesAngularMatching
+    frame_start: 0
+    N_frames: None
+    d_max: 1.0
+    dv_max: 1.0
+    mean_flow: [0.0, 0.0, 0.0]
+    save_name: ./testcase_1/trajectoriesAngularMatching

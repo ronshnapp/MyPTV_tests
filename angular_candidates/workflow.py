@@ -523,6 +523,7 @@ class workflow(object):
         '''
         from myptv.particle_matching_mod import match_blob_files
         from myptv.imaging_mod import camera, img_system
+        import time
         
         # fetching the parameters
         blob_fn = self.get_param('matching', 'blob_files')
@@ -570,7 +571,8 @@ class workflow(object):
                 msg = 'N_frames must be an integer of None (given %s).'%tp
                 raise TypeError(msg)
                 
-                
+        t0 = time.time()
+        
         # mathing
         print('Starting stereo-matching.')
         mbf.get_particles(frames=frames)
@@ -584,6 +586,7 @@ class workflow(object):
         c2 = sum([1 for p in mbf.particles if len(p[3])==2])
         print('pairs:', c2)
         
+        print('\ntime:', time.time()-t0)
         
         # save the results
         if save_name is not None:

@@ -1,0 +1,10 @@
+- matching:
+    blob_files: ./testcase_3/blobs_cam1, ./testcase_3/blobs_cam2, ./testcase_3/blobs_cam3, ./testcase_3/blobs_cam4
+    N_frames: 1
+    camera_names: testcase_3/cam1, testcase_3/cam2, testcase_3/cam3, testcase_3/cam4
+    cam_resolution: 1280, 1024
+    ROI: -10.0, 80.0, -10.0, 80.0, -25.0, 25.0
+    voxel_size: 1.5
+    max_blob_distance: 1.5
+    max_err: 0.25
+    save_name: ./testcase_3/particlesVoxelMethod

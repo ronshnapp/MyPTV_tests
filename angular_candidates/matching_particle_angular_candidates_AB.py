@@ -14,7 +14,7 @@ lines.
 """
 
 from pandas import read_csv
-from numpy import array, linspace, mean, ptp, dot
+from numpy import array, linspace, mean, ptp, dot, savetxt
 from numpy import sum as npsum
 from scipy.spatial import KDTree
 from random import sample
@@ -51,7 +51,7 @@ class matching_particle_angular_candidates(object):
         self.dB = dB
         self.max_d_err = max_d_err
         self.max_err_3d = max_err_3d
-        
+        self.matches = []
         self.Ncams = len(self.imsys.cameras)
         
         
@@ -82,244 +82,18 @@ class matching_particle_angular_candidates(object):
                 if i!=k:
                     dic[k] = 0
             self.B_ik_trees.append(dic)
-        
-        
-        
-    def get_theta_ijk(self, cam_num, p_num, cam_k, frame):
-        '''
-        calculates the angle in camera cam_num, of blob with index
-        p_num, relative to the center, O_k, of camera cam_k.
-        
-        cam_num - integer
-        p_num - integer
-        cam_k - integer
-        frame - integer, index of the frame number at which the mathching done
-        '''
-        
-        if cam_num == cam_k:
-            raise ValueError('cam_num and cam_k cannot be the same')
-        
-        Xij = self.blobs[cam_num][self.frames[frame]][p_num][:2][::-1]
-        #Xij = self.blobs[cam_num][self.frames[frame]][p_num][:2]
-        O_k = self.imsys.cameras[cam_k].O
-        O_ik = self.imsys.cameras[cam_num].projection(O_k)
-        
-        #theta_ijk = (Xij[1] - O_ik[1]) / (Xij[0] - O_ik[0])
-        #return theta_ijk
-        
-        O_i = self.imsys.cameras[cam_num].O
-        rij = self.imsys.cameras[cam_num].get_r(Xij[0], Xij[1])
-        r_OkOi = (O_k - O_i)/sum((O_k - O_i)**2)**0.5
-        rij_k = r_OkOi - rij
-        p = self.imsys.cameras[cam_num].projection(O_k + rij_k*600)
-        
-        theta_ijk = (p[1] - O_ik[1]) / (p[0] - O_ik[0])
-        return theta_ijk
-    
-    
-    
-    def get_THETA_ijk(self, cam_num, p_num, cam_k, frame):
-        '''
-        calculates the angle in camera cam_k, of the epipolar line of the
-        particle with index p_num of camera cam_num.
-        
-        cam_num - integer
-        p_num - integer
-        cam_k - integer
-        frame - integer, index of the frame number at which the mathching done
-        '''
-        
-        if cam_num == cam_k:
-            raise ValueError('cam_num and cam_k cannot be the same')
-        
-        Xij = self.blobs[cam_num][self.frames[frame]][p_num][:2][::-1]
-        #Xij = self.blobs[cam_num][self.frames[frame]][p_num][:2]
-        O_i = self.imsys.cameras[cam_num].O
-        rij = self.imsys.cameras[cam_num].get_r(Xij[0], Xij[1])
-        
-        p1 = O_i
-        p2 = O_i - rij*600
-        
-        proj1 = self.imsys.cameras[cam_k].projection(p1)
-        proj2 = self.imsys.cameras[cam_k].projection(p2)
-        
-        #print(proj1)
-        #print(proj2)
-        
-        THETA_ijk = (proj1[1] - proj2[1]) / (proj1[0] - proj2[0])
-        return THETA_ijk
-    
-    
-    def calculate_theta_dictionaries(self, frame):
-        '''
-        Goes over all the blobs and for each one calculates the angles
-        it has with respect to the other cameras k.
-        
-        Eventually, to retrieve theta_ijk, we look at self.theta_dic[i][j][k]
-        Note that for i==k the value of theta_ijk is not defined (NaN).
-        '''
-        
-        self.theta_dic = {}
-        for i in range(len(self.imsys.cameras)):
-            self.theta_dic[i] = {}
-            for j in range(len(self.blobs[i][frame])):
-                self.theta_dic[i][j] = []
-                for k in range(len(self.imsys.cameras)):
-                    if i==k:
-                        self.theta_dic[i][j].append(float('nan'))
-                    else:
-                        self.theta_dic[i][j].append(
-                                            self.get_theta_ijk(i,j,k,frame))
-
             
-    
-    def get_blob_angular_candidates(self, i, j, frame):
-        '''
-        For the blob number j belonging to camera i at the given frame index,
-        this function returns a dictionary that holds the candidate matches
-        for it. 
-        
-        The candidates are indicated by their camera number i_ and blob
-        number j_. Each of them is also associated with the distance along the 
-        epipolar line of blob ij from Oi that corresponds to blob Xi_j_. This 
-        distance is annotated dij_ij.
-        
-        Thus, we return a dictionary that has keys i_ and values
-        are lists of tuples that hold (j_, dij_ij) of candidates in camera i_.
-        '''
-        
-        Oi = self.imsys.cameras[i].O
-        Xij = self.blobs[i][frame][j][:2][::-1]
-        #Xij = self.blobs[i][frame][j][:2]
-        rij = self.imsys.cameras[i].get_r(Xij[0], Xij[1])
-        
-        candidate_dic = {}
-        for k in range(len(self.imsys.cameras)):
-            if k != i:
-                Ok = self.imsys.cameras[k].O
-                THETA_ijk = self.get_THETA_ijk(i, j, k, frame)
-                
-                #print(k, THETA_ijk)
-                
-                if self.theta_ik_trees[i][k]==0:
-                    theta_ik_list = [[self.theta_dic[k][j_][i]] for j_ in
-                                      range(len(self.blobs[k][frame]))]
-                    self.theta_ik_trees[i][k] = KDTree(theta_ik_list)
-                
-                theta_range = ptp(self.theta_ik_trees[i][k].data)
-                
-                # searching for candidates with similar theta using the tree
-                # which returns their indexes j_
-                cand_j = self.theta_ik_trees[i][k].query_ball_point([THETA_ijk],
-                                                                  self.d_theta * theta_range)
-                
-                # calculate the distances d along the epipolar line that
-                # corresponds to each candidate
-                for e, j_ in enumerate(cand_j):
-                    Xkj = self.blobs[k][frame][j_][:2][::-1]
-                    #Xkj = self.blobs[k][frame][j_][:2]
-                    rki = self.imsys.cameras[k].get_r(Xkj[0], Xkj[1])
-                    
-                    ld, x = line_dist(Oi, rij, Ok, rki)
-                    dij_ij = sum((x - Oi)**2)**0.5
-                    d_theta = abs(self.theta_dic[k][j_][0] - THETA_ijk) / theta_range
-                    cand_j[e] = (j_, dij_ij, d_theta)
-                    
-                candidate_dic[k] = cand_j
-                
-        return candidate_dic
-    
-    
-    
-    def find_blob_candidates(self, i, j, frame):
-        '''
-        Here we take a blob identified by camera number i and blob number j,
-        retrieve its angular candidates, and deterimnes among those sets of 
-        candidates that their distance along the epipolar line is also 
-        compatible. We then return these sets of candidates.
-        '''
-        c = self.get_blob_angular_candidates(i,j,frame)
-        keys = list(c.keys())
-        N = len(keys)
-        
-        index_list = [0 for k in range(len(c.keys()))]
-        lengths = [len(c[k]) for k in keys]
-        empty_cams = [k for k in keys if len(c[k])==0]
-        if len(empty_cams)>0:
-            # warnings.warn('Note: no candidates found in cam '+str(empty_cams))
-            return []
-        
-        for k in c.keys():
-            c[k] = sorted(c[k], key=lambda x: x[1])
-        
-        
-        cands = []
-        while any([index_list[e] < lengths[e] for e in range(N)]):
-            current_d_lst = [c[keys[e]][index_list[e]][1] for e in range(N)] 
-            mean_d = sum(current_d_lst) / N
-            test = all([abs(d - mean_d)<self.max_d_err for d in current_d_lst])
-            if test:
-                cands.append([])
-                for e in range(N):
-                    cands[-1].append((keys[e], c[keys[e]][index_list[e]][0]))
             
-            can_be_progressed = [(current_d_lst[e],e) for e in range(N) 
-                                 if index_list[e]+1<lengths[e]]
-            
-            if len(can_be_progressed)>0:
-                argmin = min(can_be_progressed, key=lambda x: x[0])[1]
-                index_list[argmin] += 1
-            else:
-                break
-        
-        return cands
-        
-    
-    
-    def sreteo_match_blob(self, i, j, frame):
-        '''
-        Here we take a blob identified by camera number i and blob number j,
-        retrieve its candidates and then try to stereo match all of them. 
-        We return the matches that their err is smaller than max_d_err. For 
-        testing purposes we also return the candidates.
-        '''
-        candidates = mps.find_blob_candidates(i, j, frame)
-        
-        coordDic = {i: self.blobs[i][frame][j][:2][::-1]}
-        matches = []
-        
-        for cand in candidates:
-            
-            for i_, j_ in cand:
-                coordDic[i_] = self.blobs[i_][frame][j_][:2][::-1]
-            
-            match = self.imsys.stereo_match(coordDic, 100000)
-            
-            if match[-1] < self.max_err_3d:
-                err = match[-1]
-                indexes = [-1 for k in range(len(self.imsys.cameras))]
-                indexes[i] = j
-                for i_, j_ in cand: indexes[i_] = j_
-                m = list(match[0]) + indexes + [err, frame]
-                matches.append(m)
-                
-        return matches, candidates
-    
-    
-    
-    def clear_theta_trees(self):
-        '''
-        Prepares a fresh list ready to be filled with theta_ik KDtrees.
-        '''
-        self.theta_ik_trees = []
+        # a dictionary of interpolators for B. The keys are camera numbers
+        # and the values are interpolators for these two cameras
+        print('preparing epipolar interpolators')
+        self.B_interpolator_dict = {}
         for i in range(self.Ncams):
-            dic = {}
             for k in range(self.Ncams):
-                if i!=k:
-                    dic[k] = 0
-            self.theta_ik_trees.append(dic)
-        
-    ### =======================================================================
+                if i==k: continue
+                self.B_interpolator_dict[(i,k)] = self.build_B_interpolator(i,k)
+            
+            
         
     def get_epipolar_projection(self, i, j, k, frame):
         '''
@@ -372,12 +146,13 @@ class matching_particle_angular_candidates(object):
         '''
         Calculates and returns the virtual origin of camera i in camera j.
         '''
+        
         cami = self.imsys.cameras[i]
         camj = self.imsys.cameras[j]
         
         Oi = cami.O
         a0 = sum(Oi**2)**0.5
-        da = a0/20000
+        da = a0/10
         
         eta_list = [0, cami.resolution[0]/2, cami.resolution[0]]
         zeta_list = [0, cami.resolution[1]/2, cami.resolution[1]]
@@ -410,6 +185,82 @@ class matching_particle_angular_candidates(object):
         
         return array(VO_sum)/9
         
+        # =========================================================
+        # Virtual oriin interpolation with linear interpolator
+        # =========================================================
+        
+        # from scipy.interpolate import LinearNDInterpolator
+        
+        # points, values = [], []
+        # for e,ee in enumerate(eta_list):
+        #     for z,zz in enumerate(zeta_list):
+                
+        #         #if ee==1 and zz==2: continue
+        
+        #         rij = self.imsys.cameras[i].get_r(e, z)
+        #         p1 = camj.projection(Oi - rij * (a0 + da))
+        #         p2 = camj.projection(Oi - rij * (a0 - da))
+        #         Ai = (p1[1]-p2[1]) / (p1[0]-p2[0])
+        #         Bi = p1[1] - Ai*p1[0]
+                
+        #         VOx = (Bi-B0)/(A0-Ai)
+        #         VOy = Ai*VOx + Bi
+                
+        #         points.append([ee,zz])
+        #         values.append([VOx, VOy])
+        
+        # return LinearNDInterpolator(points, values)
+        # =========================================================
+        
+        
+        
+    
+    def build_B_interpolator(self, i, k):
+        '''
+        For cameras number i and k, this funciton draws projections of epopilar 
+        lines from camera i onto camera k, and then generates a linear  
+        interpolator that takes in image space coordinates in camera k and
+        returns the value of B relative to camera i.
+        '''
+        from scipy.interpolate import LinearNDInterpolator
+        from numpy import linspace
+        
+        cami = self.imsys.cameras[i]
+        camk = self.imsys.cameras[k]
+        
+        Oi = cami.O
+        a0 = sum(Oi**2)**0.5
+        da = a0/25
+        
+        rxi, ryi = cami.resolution[0], cami.resolution[1]
+        eta_list = linspace(0, 1, num=8)*rxi
+        zeta_list = linspace(0, 1, num=8)*ryi
+        
+        rxk, ryk = camk.resolution[0], camk.resolution[1]
+        
+        points = []
+        values = []
+        
+        for e in eta_list:
+            for z in zeta_list:
+                r = cami.get_r(e, z)
+                a_ = 0
+                while a_ < a0*3:
+                    x = Oi - r*a_
+                    Xij = camk.projection(x)
+                    if 0<=Xij[0]<=rxk and 0<=Xij[1]<=ryk:
+                        points.append(Xij)
+                        x1 = camk.projection(Oi - r*(a_-da/100))
+                        x2 = camk.projection(Oi - r*(a_+da/100))
+                        A = (x1[1]-x2[1])/(x1[0]-x2[0])
+                        B = Xij[1]-A*Xij[0]
+                        values.append(B)
+                    
+                    a_ += da
+                    
+        return LinearNDInterpolator(points, values)
+            
+        
         
         
     def get_blob_relative_epipolar_projection(self, i, j, k, frame):
@@ -418,8 +269,11 @@ class matching_particle_angular_candidates(object):
         space that originates from the virtual origin of camera k, and crosses
         the blob j. This function returns A and B for this blob.
         '''
-        VO = self.virtualOrigins[(k, i)]
         Xij = self.blobs[i][frame][j][:2]
+        
+        VO = self.virtualOrigins[(k, i)]         # <- Fixed mean VO
+        # VO = self.virtualOrigins[(k, i)](Xij)[0]   # <- Interpolated VO
+        
         A = (VO[1]-Xij[1]) / (VO[0]-Xij[0])
         B = VO[1] - A*VO[0]
         return A, B
@@ -444,37 +298,43 @@ class matching_particle_angular_candidates(object):
                     if i==k:
                         self.B_dic[i][j].append(float('nan'))
                     else:
-                        A, B = self.get_blob_relative_epipolar_projection(i,
-                                                                          j,
-                                                                          k,
-                                                                          frame)
+                        #A, B = self.get_blob_relative_epipolar_projection(i,
+                        #                                                  j,
+                        #                                                  k,
+                        #                                                  frame)
+                        interpolator = self.B_interpolator_dict[(k, i)]
+                        Xij = self.blobs[i][frame][j][:2]
+                        B = interpolator(Xij)[0]
                         self.B_dic[i][j].append(B)
 
 
     
-    def get_blob_epipolar_candidates(self, i, j, frame):
+    def get_epipolar_candidates(self, i, j, frame):
         '''
         For the blob number j belonging to camera i at the given frame index,
         this returns a dictionary that holds candidate matches for it. 
         
         The candidates are indicated by their camera number i_ and blob
-        number j_. ### Each of them is also associated with the distance along the 
+        number j_. Each of them is also associated with the distance along the 
         epipolar line of blob ij from Oi that corresponds to blob Xi_j_. This 
-        distance is annotated dij_ij. ###
+        distance is annotated dij_ij.
         
         Thus, we return a dictionary that has keys i_ and values
         are lists of tuples that hold (j_, dij_ij) of candidates in camera i_.
         '''
         
         candidate_dic = {}
+        Oi = self.imsys.cameras[i].O
+        Xij = self.blobs[i][frame][j][:2]
+        rij = self.imsys.cameras[i].get_r(Xij[0], Xij[1]) 
+        
         for k in range(len(self.imsys.cameras)):  # <- For all other k cameras
             if k != i:
                 
                 Aijk, Bijk = self.get_epipolar_projection(i, j, k, frame)
                 
-                print(k, Bijk)
-                
                 if self.B_ik_trees[i][k]==0:
+                    
                     B_ik_list = [[self.B_dic[k][j_][i]] for j_ in
                                       range(len(self.blobs[k][frame]))]
                     self.B_ik_trees[i][k] = KDTree(B_ik_list)
@@ -483,20 +343,142 @@ class matching_particle_angular_candidates(object):
                 
                 # searching for candidates with similar B using the tree
                 # which returns their indexes j_
+                #print((k, Bijk))
                 cand_j = self.B_ik_trees[i][k].query_ball_point([Bijk],
                                                                 self.dB * B_range)
                 
                 # calculate the distances d along the epipolar line that
                 # corresponds to each candidate
                 for e, j_ in enumerate(cand_j):
+                    Ok = self.imsys.cameras[k].O
+                    Xkj = self.blobs[k][frame][j_][:2]
+                    rki = self.imsys.cameras[k].get_r(Xkj[0], Xkj[1])
                     
-                    cand_j[e] = (j_, 0, self.B_dic[k][j_][i])
+                    ld, x = line_dist(Oi, rij, Ok, rki)
+                    dij_ij = sum((x - Oi)**2)**0.5
+                    
+                    cand_j[e] = (j_, dij_ij, self.B_dic[k][j_][i])
                     
                 candidate_dic[k] = cand_j
                 
         return candidate_dic
     
     
+    
+    def match_blob_candidates(self, i, j, frame):
+        '''
+        Matches are returns all the candidates of the blob number j
+        from camera i in frame.
+        '''
+        from itertools import product
+        
+        c = self.get_epipolar_candidates(i,j,frame)
+        keys = list(c.keys())
+        N = len(keys)
+        
+        ind_lst = [list(range(len(c[k]))) for k in c.keys()]
+        
+        matches = []
+        
+        ind_combinations = list(product(*ind_lst))
+        
+        for comb in ind_combinations:
+            
+            # check if d_ij of all particles is similar
+            dij_lst = [c[keys[i]][comb[i]][1] for i in range(len(comb))]
+            av_dij = sum(dij_lst)/len(dij_lst)
+            dij_deviations = [abs(dij-av_dij)<self.max_d_err for dij in dij_lst]
+            if not all(dij_deviations):
+                continue
+            
+            # construct the coord_dic for stereo matching and index list
+            cord_lst = [(i, self.blobs[i][frame][j])]
+            il = [-1 for n in range(len(self.imsys.cameras))]
+            il[i] = j
+            
+            for e, ind in enumerate(comb):
+                i_ = keys[e]
+                j_ = c[i_][ind][0]
+                #print(i_,j_)
+                cord_lst.append((i_, self.blobs[i_][frame][j_]))
+                il[i_] = j_
+                
+            coord_dic = dict(cord_lst)
+            
+            # stereo metching and adding to the list
+            match = self.imsys.stereo_match(coord_dic, 1e100)
+            pos = list(match[0])
+            err = [match[-1]]
+            
+            matches.append( pos + il + err + [frame])
+            
+        return matches
+    
+    
+    
+    def clear_B_trees(self):
+        '''
+        Prepares a fresh list ready to be filled with B_ik KDtrees. This is
+        used every time we proceed to match particles in a new frame.
+        '''
+        self.B_ik_trees = []
+        for i in range(self.Ncams):
+            dic = {}
+            for k in range(self.Ncams):
+                if i!=k:
+                    dic[k] = 0
+            self.B_ik_trees.append(dic)
+    
+    
+    
+    def match_particles_in_frame(self, Frame):
+        '''
+        Given a frame number, this function will stereo match all the blobs
+        in that frame.
+        '''
+        
+        print('\nmatching frame ', Frame)
+        t0 = time.time()
+        
+        print('\nCalculating epipolar dictionaries')
+        self.clear_B_trees()
+        self.calculate_B_dictionaries(Frame)
+        
+        N_candidates = 0
+        N_matches = 0
+        matched = set([])
+    
+        for i in range(len(self.imsys.cameras)):
+            for j in range(len(mps.blobs[i][Frame])):
+                candidate_matches = mps.match_blob_candidates(i, j, Frame)
+                N_candidates += len(candidate_matches)
+                mprev = N_matches
+                for m in candidate_matches:
+                    il = tuple(m[3:-2])
+                    if m[-2]< self.max_err_3d and il not in matched:
+                        self.matches.append(m)
+                        matched.add(il)
+                        N_matches += 1
+                
+                #print('     ', end='\r')
+                #print('%d/%d: %d, %d     '%(i, j, len(candidate_matches), 
+                #                       N_matches-mprev), end="\r")
+               
+        
+        print('\ntotal matches this frame: ', N_matches)
+        print('total candidates this frame: ', N_candidates)
+        print('calculation time this frame: ', time.time() - t0)
+        
+    
+    
+    def save_results(self, fname):
+        '''will save the list of matched particles'''
+            
+        fmt = ['%.3f', '%.3f', '%.3f']
+        for i in range(len(self.imsys.cameras)):
+            fmt.append('%d')
+        fmt = fmt + ['%.3f', '%.3f']
+        savetxt(fname, self.matches, fmt=fmt, delimiter='\t')
     
     
 
@@ -508,7 +490,10 @@ if __name__=='__main__':
     import time
     
     # camNames = ['./testcase_1/cam%d'%i for i in [1,2,3]]
-    camNames = ['./testcase_2/cam%d'%i for i in [1,2,3]]
+    # camNames = ['./testcase_2/cam%d'%i for i in [1,2,3]]
+    # camNames = ['./testcase_3/cam%d'%i for i in [1,2,3,4]]
+    camNames = ['./testcase_4/cam%d'%i for i in [1,2,4]]
+    
     cam_list = [camera(cn, (1280,1024)) for cn in camNames]
     
     
@@ -516,11 +501,15 @@ if __name__=='__main__':
         cam.load('.')
     
     imsys = img_system(cam_list)
-    blob_files = ['./testcase_2/cam%d_CalBlobs'%i for i in [1,2,3]]
+    # blob_files = ['./testcase_1/blobs_cam%d'%i for i in [1,2,3]]
+    # blob_files = ['./testcase_2/cam%d_CalBlobs'%i for i in [1,2,3]]
+    # blob_files = ['./testcase_3/blobs_cam%d'%i for i in [1,2,3,4]]
+    blob_files = ['./testcase_4/blobs_cam%d'%i for i in [1,2,4]]
     
-    d_theta = 0.01
-    max_d_err = 0.5
-    max_err_3d = 0.5
+    d_theta = 0.001      # Numerical - the fraction of space to look at
+    max_d_err = 0.8      # In, e.g. mm, a value similar to calibration err
+    max_err_3d = 0.25     # In, e.g. mm, a value similar to calibration err
+    
     
     mps = matching_particle_angular_candidates(imsys, 
                                                blob_files, 
@@ -530,59 +519,58 @@ if __name__=='__main__':
                                                reverse_eta_zeta=True)
     
     mps.get_virtual_origins_dic()
-    
     frames = list(mps.blobs[0].keys())
-    f = frames[0]
     
-    mps.calculate_B_dictionaries(f)
-        
-        
-         
+    #mps.calculate_B_dictionaries(0)
+    
+    for f in frames[:1]:
+        mps.match_particles_in_frame(f)
+   
+    print(len(mps.matches))
+    
+    #mps.save_results('particlesAngularMatching')
+
+      
 #%%
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
-fig, ax = plt.subplots()
-
-
-i = 251
+# fig, ax = plt.subplots()
 
 
-A, B = mps.get_epipolar_projection(0, i, 2, 0)
-ax.plot([0, 1200], [A*0+B, A*1200+B], '--')
-
-Oi = mps.imsys.cameras[0].O
-Xij = mps.blobs[0][0][i]
-rij = mps.imsys.cameras[0].get_r(Xij[0], Xij[1])
-
-a = np.linspace(300, 3000, num=50)
-x_ = [mps.imsys.cameras[2].projection(Oi - a_*rij)[0] for a_ in a]
-y_ = [mps.imsys.cameras[2].projection(Oi - a_*rij)[1] for a_ in a]
-ax.plot(x_, y_, 'k-')
+# A, B = mps.get_epipolar_projection(0, 0, 2, 0)
+# ax.plot([0, 1200], [A*0+B, A*1200+B], 'b--')
+# print(A, B)
 
 
-for i_ in range(len(mps.blobs[2][0])):
-    Xi_j_ = mps.blobs[2][0][i_]
-    ax.plot(Xi_j_[0], Xi_j_[1], 'o', ms=3)
-    ax.text(Xi_j_[0], Xi_j_[1], str(i_))
+# A, B = mps.get_epipolar_projection(1, 18, 2, 0)
+# ax.plot([0, 1200], [A*0+B, A*1200+B], 'r--')
+# print(A, B)
 
 
-#for j in [30,61,17]:
-#    A, B = mps.get_blob_relative_epipolar_projection(2, j, 0, 0)
-#    ax.plot([0, 1200], [A*0+B, A*1200+B], 'r-', alpha=0.2)        
 
-#%%
+# for i_ in range(len(mps.blobs[2][0])):
+#     Xi_j_ = mps.blobs[2][0][i_]
+#     ax.plot(Xi_j_[0], Xi_j_[1], 'o', ms=3)
+#     ax.text(Xi_j_[0], Xi_j_[1], str(i_))
 
-success = []
-for j in range(len(mps.blobs[2][0])):
-    
-    cd = {0: mps.blobs[0][0][251][:2],
-          2: mps.blobs[2][0][j][:2]}
-    
-    m = imsys.stereo_match(cd, 1000000)
-    
-    if m[-1]<=2:
-        success.append(j)
-        print(j, m)
+
+# for j in [17]:
+#     A, B = mps.get_blob_relative_epipolar_projection(2, j, 0, 0)
+#     ax.plot([0, 1200], [A*0+B, A*1200+B], 'b-', alpha=0.2)        
+
+
+# for j in [18]:
+#     A, B = mps.get_blob_relative_epipolar_projection(2, j, 1, 0)
+#     ax.plot([0, 1200], [A*0+B, A*1200+B], 'r-', alpha=0.2)   
+
+      
+
+
+
+
+
+
+
 
 
 
