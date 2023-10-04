@@ -506,9 +506,9 @@ if __name__=='__main__':
     # blob_files = ['./testcase_3/blobs_cam%d'%i for i in [1,2,3,4]]
     blob_files = ['./testcase_4/blobs_cam%d'%i for i in [1,2,4]]
     
-    d_theta = 0.001      # Numerical - the fraction of space to look at
-    max_d_err = 0.8      # In, e.g. mm, a value similar to calibration err
-    max_err_3d = 0.25     # In, e.g. mm, a value similar to calibration err
+    d_theta = 0.002      # Numerical - the fraction of space to look at
+    max_d_err = 1.0      # In, e.g. mm, a value similar to calibration err
+    max_err_3d = 0.15     # In, e.g. mm, a value similar to calibration err
     
     
     mps = matching_particle_angular_candidates(imsys, 
@@ -523,7 +523,7 @@ if __name__=='__main__':
     
     #mps.calculate_B_dictionaries(0)
     
-    for f in frames[:1]:
+    for f in frames[:10]:
         mps.match_particles_in_frame(f)
    
     print(len(mps.matches))

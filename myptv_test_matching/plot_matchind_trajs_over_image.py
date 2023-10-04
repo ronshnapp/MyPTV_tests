@@ -84,6 +84,7 @@ def plot_one_frame(particlesPath, cam, frameNum, imgDir, imgIndex, vmax=50,
     ax.text(0.02, -0.12, 'frame: %d'%frameNum, transform=ax.transAxes)
     ax.set_xlim(0, cam.resolution[0])
     ax.set_ylim(0, cam.resolution[1])
+    ax.set_title("circle = matched particle projection ; lines = trajectory")
     ax.invert_yaxis()
     return
 
@@ -117,24 +118,27 @@ def animateFrames(frameList, particlesPath, cam,  imagesDir, imgIndexList,
 
 if __name__=='__main__':
     
-    fname = '/home/ron/Desktop/Research/plankton_sweeming/experiments/20220916/MyPTV_analysis/run5/trajecotries_stitched'
-    frameNum = 10
+    fname = '/home/ron/Desktop/myPTV_HW_files/filesforRon/trajs_multiple'
+    frameNum = 20 #number of frames to animate
     
-    imgDir = '/media/ron/Elements/copepods_work/20220916/run5/Cam2_NoBG'
+    imgDir = '/home/ron/Desktop/myPTV_HW_files/filesforRon/images_left_ron'
     imgPath = os.path.join(imgDir, sorted(os.listdir(imgDir))[frameNum])
     
-    cameraName = 'cam2'
-    camResolution = 1280,1024
-    cameraPath = '/home/ron/Desktop/Research/plankton_sweeming/experiments/20220916/MyPTV_analysis'
+    cameraName = '/home/ron/Desktop/myPTV_HW_files/filesforRon/camL'
+    camResolution = 390,560
+    cameraPath = '/home/ron/Desktop/myPTV_HW_files/filesforRon'
     cam = camera(cameraName, camResolution)
     cam.load(cameraPath)
     imgIndex = frameNum
     
     #plot_one_frame(fname, cam, frameNum, imgDir, imgIndex, vmax=20)
     
-    frameList = list(range(0,200,1))
+    frameList = list(range(0,frameNum,1))
     
-    animateFrames(frameList, fname, cam, imgDir, frameList, vmax=30, radius=7, FPS=4)
+    fps = 2 # Frame rate of the animation
+    
+    animateFrames(frameList, fname, cam, imgDir, frameList, vmax=250,
+                  radius=7, FPS=fps)
 
 
 

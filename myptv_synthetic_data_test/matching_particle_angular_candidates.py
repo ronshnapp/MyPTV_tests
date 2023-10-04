@@ -14,7 +14,7 @@ lines.
 """
 
 from pandas import read_csv
-from numpy import array, linspace, mean
+from numpy import array, linspace, mean, ptp
 from numpy import sum as npsum
 from scipy.spatial import KDTree
 from random import sample
@@ -22,10 +22,6 @@ from myptv.imaging_mod import camera, img_system
 from myptv.utils import line_dist
 import warnings
 
-
-import matplotlib.pyplot as plt
-import numpy as np
-import time
 
 
 
@@ -40,7 +36,7 @@ class matching_particle_angular_candidates(object):
         imsys - An instance of the myptv img_system with loaded cameras inside
         
         blob_files - a list of paths pointing to blob files. The list shoud
-                     be orders according to the order of the camera in imsys.
+                     be ordered according to the order of the camera in imsys.
         
         d_theta - the max uncertainy of the projections angles
         
@@ -195,7 +191,7 @@ class matching_particle_angular_candidates(object):
                                       range(len(self.blobs[k][frame]))]
                     self.theta_ik_trees[i][k] = KDTree(theta_ik_list)
                 
-                theta_range = np.ptp(self.theta_ik_trees[i][k].data)
+                theta_range = ptp(self.theta_ik_trees[i][k].data)
                 
                 # searching for candidates with similar theta using the tree
                 # which returns their indexes j_
@@ -265,84 +261,85 @@ class matching_particle_angular_candidates(object):
         
 
 
+if __name__=='__main__':
 
-cam1 = camera('cam1', (1280,1024))
-cam2 = camera('cam2', (1280,1024))
-cam3 = camera('cam3', (1280,1024))
-cam4 = camera('cam4', (1280,1024))
-
-cam_list = [cam1, cam2, cam3, cam4]
-
-for cam in cam_list:
-    cam.load('.')
-
-
-gt = np.loadtxt('ground_truth')
-
-
-imsys = img_system(cam_list)
-blob_files = ['blobs_cam1', 'blobs_cam2', 'blobs_cam3', 'blobs_cam4']
-
-
-d_theta = 0.001
-max_d_err = 0.01
-
-mps = matching_particle_angular_candidates(imsys, blob_files, d_theta, max_d_err)
-
-
-t0 = time.time()
-mps.calculate_theta_dictionaries(0)
-print(time.time() - t0)
-
-
-
-
-
-#%%
-
-t0 = time.time()
-err_3d_max = 0.08
-i=0
-
-Np = len(mps.blobs[0][0])
-True_matches = 0
-False_matches = 0
-total_angular_matches = 0
-
-not_matched = []
-
-for j in range(Np):
-    matches_j = mps.find_blob_matches(i, j, 0)
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import time
     
-    if len(matches_j)==0:
-        continue
+
+    cam1 = camera('cam1', (1280,1024))
+    cam2 = camera('cam2', (1280,1024))
+    cam3 = camera('cam3', (1280,1024))
+    cam4 = camera('cam4', (1280,1024))
     
-    total_angular_matches += len(matches_j)
+    cam_list = [cam1, cam2, cam3, cam4]
     
-    blobs_dic = {i: mps.blobs[i][0][j][:2][::-1]}
-    matched = False
-    for m in matches_j:
-        for i_,j_ in m:
-            blobs_dic[i_] = mps.blobs[i_][0][j_][:2][::-1]
+    for cam in cam_list:
+        cam.load('.')
+    
+    gt = np.loadtxt('ground_truth')
+    
+    imsys = img_system(cam_list)
+    blob_files = ['blobs_cam1', 'blobs_cam2', 'blobs_cam3', 'blobs_cam4']
+    
+    d_theta = 0.0005
+    max_d_err = 0.02
+    
+    mps = matching_particle_angular_candidates(imsys, blob_files, 
+                                               d_theta, max_d_err)
+    
+    t0 = time.time()
+    mps.calculate_theta_dictionaries(0)
+    print(time.time() - t0)
+    
+    
+    
+    
+    
+    t0 = time.time()
+    err_3d_max = 0.08
+    i=0
+    
+    Np = len(mps.blobs[0][0])
+    True_matches = 0
+    False_matches = 0
+    total_angular_matches = 0
+    
+    not_matched = []
+    
+    for j in range(Np):
+        matches_j = mps.find_blob_matches(i, j, 0)
         
-        stereo_match = imsys.stereo_match(blobs_dic, 1000)
-        err_3d = stereo_match[2]
-    
-        test_true = all([j_==j for i_,j_ in m]) and err_3d < err_3d_max
-        if test_true: 
-            True_matches += 1
-            matched = True
+        if len(matches_j)==0:
+            continue
         
-        test_false = any([j_!=j for i_,j_ in m]) and err_3d < err_3d_max
-        if test_false: False_matches += 1
+        total_angular_matches += len(matches_j)
         
-    if not matched:
-        not_matched.append(j)
+        blobs_dic = {i: mps.blobs[i][0][j][:2][::-1]}
+        matched = False
+        for m in matches_j:
+            for i_,j_ in m:
+                blobs_dic[i_] = mps.blobs[i_][0][j_][:2][::-1]
             
-print('True matches:', True_matches)
-print('False matches:', False_matches)
-print('Total angular matches: ', total_angular_matches)
-print('time: ', time.time() - t0)
+            stereo_match = imsys.stereo_match(blobs_dic, 1000)
+            err_3d = stereo_match[2]
+        
+            test_true = all([j_==j for i_,j_ in m]) and err_3d < err_3d_max
+            if test_true: 
+                True_matches += 1
+                matched = True
+            
+            test_false = any([j_!=j for i_,j_ in m]) and err_3d < err_3d_max
+            if test_false: False_matches += 1
+            
+        if not matched:
+            not_matched.append(j)
+                
+    print('True matches:', True_matches)
+    print('False matches:', False_matches)
+    print('Total angular matches: ', total_angular_matches)
+    print('time: ', time.time() - t0)
 
 
         

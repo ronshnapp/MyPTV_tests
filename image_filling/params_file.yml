@@ -1,0 +1,79 @@
+- segmentation:
+    Number_of_images: None
+    image_start: 0
+    images_folder: /media/ron/Elements/copepods_work/20221229/CoreView_79/Cam4_noBG
+    single_image_name: im_0000.tif
+    image_extension: '.tif'
+    mask: 1.0
+    ROI: 100, 1270, 50, 1020
+    plot_result: True
+    threshold: 7
+    median: None
+    blur_sigma: 0.5
+    local_filter: 5
+    min_xsize: 0.0
+    min_ysize: 0.0
+    min_mass: None
+    max_xsize: 4.0
+    max_ysize: 4.0
+    max_mass: None
+    method: labeling
+    particle_size: 8
+    save_name: run79/blobs_cam4
+
+- matching:
+    blob_files: filled_tracked_blobs_cam1, filled_tracked_blobs_cam2, filled_tracked_blobs_cam4
+    frame_start: 0
+    N_frames: None
+    camera_names: cam1, cam2, cam4
+    cam_resolution: 1280, 1024
+    ROI: 0.0, 70.0, 0.0, 70.0, -20.0, 20.0
+    voxel_size: 1.0
+    max_blob_distance: 0.25
+    max_err: 0.25
+    save_name: filled_tracked_particles
+
+- tracking:
+    particles_file_name: filled_tracked_particles
+    frame_start: 0
+    N_frames: None
+    d_max: 0.15
+    dv_max: 0.15
+    save_name: filled_tracked_trajectories
+
+- calibration_with_particles:
+    camera_name: cam1
+    resolution: 1280, 1024
+    traj_filename: './trajectories'
+    cam_number: 1 
+    blobs_fname: 'blobs_cam1'
+    min_traj_len: 4
+    max_point_number: 1000
+    target_file: ./Calibration/target_file
+
+- smoothing:
+    trajectory_file: run83/trajectories
+    window_size: 15
+    polynom_order: 3
+    min_traj_length: 9
+    repetitions: 1
+    save_name: run83/smoothed_trajectories
+
+- stitching:
+    trajectory_file: run78/smoothed_trajectories_sweeping
+    max_time_separation: 3
+    max_distance: 0.1
+    save_name: run78/trajecotries_stitched_sweeping
+
+- 2D_tracking:
+    blob_file: run78/blobs_cam1
+    frame_start: 0
+    N_frames: 20
+    camera_name: cam1
+    camera_resolution: 1280, 1024
+    z_particles: 0.0
+    d_max: 0.15
+    dv_max: 0.15
+    save_name: run78/trajectories_2D
+    
+
