@@ -492,7 +492,8 @@ if __name__=='__main__':
     # camNames = ['./testcase_1/cam%d'%i for i in [1,2,3]]
     # camNames = ['./testcase_2/cam%d'%i for i in [1,2,3]]
     # camNames = ['./testcase_3/cam%d'%i for i in [1,2,3,4]]
-    camNames = ['./testcase_4/cam%d'%i for i in [1,2,4]]
+    # camNames = ['./testcase_4/cam%d'%i for i in [1,2,4]]
+    camNames = ['./testcase_4/cam%d'%i for i in [0,1,4]]
     
     cam_list = [camera(cn, (1280,1024)) for cn in camNames]
     
@@ -506,9 +507,9 @@ if __name__=='__main__':
     # blob_files = ['./testcase_3/blobs_cam%d'%i for i in [1,2,3,4]]
     blob_files = ['./testcase_4/blobs_cam%d'%i for i in [1,2,4]]
     
-    d_theta = 0.002      # Numerical - the fraction of space to look at
+    d_theta = 0.001      # Numerical - the fraction of space to look at
     max_d_err = 1.0      # In, e.g. mm, a value similar to calibration err
-    max_err_3d = 0.15     # In, e.g. mm, a value similar to calibration err
+    max_err_3d = 0.25     # In, e.g. mm, a value similar to calibration err
     
     
     mps = matching_particle_angular_candidates(imsys, 

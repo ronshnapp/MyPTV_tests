@@ -173,9 +173,9 @@ class image_filling(object):
 
 
 
-fname = '/home/ron/Desktop/Research/myptv_tests/image_filling/blobs_cam4'
-d_max = 3.0
-dv_max = 3.0
+fname = '/home/ron/Desktop/Research/plankton_sweeming/experiments/20221229/run79/blobs_cam1'
+d_max = 2.0
+dv_max = 2.0
 window = 3
 polyorder = 2
 Ts = 3
@@ -189,7 +189,7 @@ ImF = image_filling(fname, d_max, dv_max, smooth_window=window,
 
 ImF.do_image_filling()
 
-ImF.save_results('tracked_blobs_cam4')
+ImF.save_results('/home/ron/Desktop/Research/plankton_sweeming/experiments/20221229/run79/filled_blobs_cam1')
 
 
 #%%
