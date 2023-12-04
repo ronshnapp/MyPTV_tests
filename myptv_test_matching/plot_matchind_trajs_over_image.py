@@ -118,15 +118,15 @@ def animateFrames(frameList, particlesPath, cam,  imagesDir, imgIndexList,
 
 if __name__=='__main__':
     
-    fname = '/home/ron/Desktop/myPTV_HW_files/filesforRon/trajs_multiple'
-    frameNum = 20 #number of frames to animate
+    fname = '/home/ron/Desktop/Research/myptv/example/trajectories'
+    frameNum = 6 #number of frames to animate
     
-    imgDir = '/home/ron/Desktop/myPTV_HW_files/filesforRon/images_left_ron'
+    imgDir = '/home/ron/Desktop/Research/myptv/example/Images_cam1'
     imgPath = os.path.join(imgDir, sorted(os.listdir(imgDir))[frameNum])
     
-    cameraName = '/home/ron/Desktop/myPTV_HW_files/filesforRon/camL'
-    camResolution = 390,560
-    cameraPath = '/home/ron/Desktop/myPTV_HW_files/filesforRon'
+    cameraName = 'cam1'
+    camResolution = 1280, 1024
+    cameraPath = '/home/ron/Desktop/Research/myptv/example'
     cam = camera(cameraName, camResolution)
     cam.load(cameraPath)
     imgIndex = frameNum
@@ -135,7 +135,7 @@ if __name__=='__main__':
     
     frameList = list(range(0,frameNum,1))
     
-    fps = 2 # Frame rate of the animation
+    fps = 3 # Frame rate of the animation
     
     animateFrames(frameList, fname, cam, imgDir, frameList, vmax=250,
                   radius=7, FPS=fps)
